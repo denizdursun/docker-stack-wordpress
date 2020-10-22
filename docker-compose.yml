@@ -1,0 +1,60 @@
+version: '3.7'
+
+services:
+   mysqldb:
+     image: mysql:latest
+     deploy:
+       replicas: 1
+       restart_policy:
+         condition: on-failure
+     environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: /run/secrets/dbuser
+      MYSQL_PASSWORD: /run/secrets/dbpass
+      MYSQL_ROOT_PASSWORD: /run/secrets/dbrootpass
+     volumes:
+      - mysql_data:/var/lib/mysql
+     networks:
+      - webnet
+     secrets:
+      - dbuser
+      - dbpass
+      - dbrootpass
+
+   websrv:
+     image: wordpress:latest
+     deploy:
+       replicas: 2
+       update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+       restart_policy:
+        condition: on-failure
+     depends_on:
+       - mysqldb
+     ports:
+       - "8000:80"
+     networks:
+       - webnet
+     environment:
+       WORDPRESS_DB_HOST: mysqldb:3306
+       WORDPRESS_DB_USER: /run/secrets/dbuser
+       WORDPRESS_DB_PASSWORD: /run/secrets/dbpass
+       WORDPRESS_DB_NAME: wordpress
+     secrets:
+      - dbuser
+      - dbpass
+      - dbrootpass
+secrets:
+    dbuser:
+      external: true
+    dbpass:
+      external: true
+    dbrootpass:
+      external: true
+volumes:
+  mysql_data:
+networks:
+  webnet:
+    driver: overlay
